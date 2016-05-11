@@ -1,0 +1,118 @@
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%                   Numerical solution of 1D Poisson equation  
+%                           y'' + 4*y = 4*x^2 + 2
+%                        BC y(0) = 0, y(1) = 1
+%                        Exact solution y = x^2 
+%                       by CIP-BS1 method
+%                    coded by Atallah Elshenawy 2016.4.2
+%                     
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Refs:
+% [1] Utsumi, T., Yabe, T., Koga, J., Aoki, T., Sekine, M. "Accurate basis set
+%     by the CIP method for the solutions of the Schr?dinger equation" 
+%       Comput. Phys. Comm. 157 (2004): 121–138
+% [2] DOI:10.1016/S0010-4655(03)00496-X
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+clc
+clear all  %#ok<CLSCR>
+close all
+% format long
+format short 
+syms xxx
+ff = 4*xxx^2 +2;
+%% trial data
+n = 10;
+a = 0;
+b = 1;
+h = (b-a)/n; 
+%% Enter the knot sequences
+x = linspace(a,b,n+1);
+%% Boundary conditions
+a1 = 0; % at f(a)= a1
+b1 = 1; % at f(b) = b1
+%% compose matrix of R.H.S.
+f1 = zeros(n+1,1);
+f2 = zeros(n+1,1);
+for  i = 2:n
+ f1(i) = inner0icip1(x(i),h,ff); 
+end
+[phmin,phplus] = phai0icip1(xxx,h);
+phpmin2 = subs(phmin,xxx,(xxx-b));
+f1(1)   = int(phplus*(ff),xxx,a,a+h);
+f1(n+1) = int(phpmin2*(ff),xxx,b-h,b);
+for  i = 2:n
+ f2(i) = inner1icip1(x(i),h,ff); 
+end
+[phmin,phplus] = phai1icip1(xxx,h);
+phpmin2 = subs(phmin,xxx,(xxx-b));
+f2(1)= int(phplus*(ff),xxx,a,a+h);
+f2(n+1)= int(phpmin2*(ff),xxx,b-h,b);
+f = [f1 ; f2]; 
+%% the coeff matrix
+[ ph00, ph01, ph10, ph11, phdash00, phdash01, phdash10, phdash11,...
+    ph2dash00, ph2dash01, ph2dash10, ph2dash11] =...
+    matriciescip1( n,h );
+
+% ph10(1,1:2)=[ (h*(7*h + 15))/420 13*h^2/420];
+%  ph10(n+1,n:n+1)=[-13*h^2/420 (h*(7*h + 15))/420];
+%  ph11(1,1:2)=[ h^3/105 -h^3/140];
+%  ph11(n+1,n:n+1)=[-h^3/140 h^3/105];
+ %%%%%%%%%%
+A00 = ph2dash00 + 4*ph00;
+A01 = ph2dash01 + 4*ph01;
+A10 = ph2dash10 + 4*ph10;
+A11 = ph2dash11 + 4*ph11;
+ %% good code
+% AA = [A00 A01; A10 A11];
+% % %%%% BC
+% AA(1,1) = 1 ;
+% AA(n+1,n+1) = 1;
+% AA(n+2,n+2) = 1;
+% AA(2*n+2,2*n+2) = 1;
+%% tried codes
+
+%%%%% B.c
+ %A00(1,1:2) = [1 0];
+ %A00(n+1,n:n+1) = [0 1];
+ %A01(1,1:2) = [0 0] ;
+% A01(n+1,n:n+1) = [0 0] ;
+% %%%%%%%%%%%%%%%%% full matrix
+% % A10(1,1:2)=[0 0];
+% % A10(n+1,n:n+1)=[0 0];
+% 
+                  AA = [A00 A01; A10 A11];
+% %%%% BC
+%                   AA(1,:) = zeros(1,2*n+2);AA(n+1,:) = zeros(1,2*n+2);
+% %  AA(n+2,:) = zeros(1,2*n+2);AA(2*n+2,:) = zeros(1,2*n+2);
+%                   AA(1,1) = 1 ;
+%                   AA(n+1,n+1) = 1;
+% AA(n+2,n+2) = 1;
+% AA(2*n+2,2*n+2) = 1;
+% % %%%% B.C resulted from the equation.
+% AA(n+2,1:2) = [-6/h^2+4 , -6/h^2+12/h^3];
+% AA(n+2,n+2:n+3) = [-4/h,4/h-6/h^2];    %%% at x = a
+% AA(2*n+2,n:n+1) = [-6/h^2+12*(1-x(n-1))/h^3,-6/h^2 + 4]; 
+% AA(2*n+2,2*n+1:2*n+2) = [4/h+6*(1-x(n-1))/h^2,4/h];
+% 
+
+ %% Exact
+Exactcip1 = zeros(n+1,1);
+Exactdashcip1= zeros(n+1,1);
+for i = 1:n+1
+   Exactcip1(i) = (x(i))^2; 
+   Exactdashcip1(i) = 2*x(i);
+end
+%% Error
+coeffcip1 = AA\f; 
+
+%% Plot two figures
+plot(x,Exactcip1,'-ro',x,coeffcip1(1:n+1),'-.b')
+h = legend('Exact','Approximate',2);
+set(h,'Interpreter','none')
+% [Exact,coeff(1:n+1), Exactdash,coeff(n+2:2*n+2)]
+error = max(abs(Exactcip1-coeffcip1(1:n+1)))
+errordash = max(abs(Exactdashcip1-coeffcip1(n+2:2*n+2)))
+figure(2)
+plot(abs(Exactcip1-coeffcip1(1:n+1)))
